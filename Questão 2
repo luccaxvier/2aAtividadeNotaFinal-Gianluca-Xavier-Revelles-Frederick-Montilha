@@ -1,0 +1,234 @@
+INDEX.PHP
+
+<?php
+
+include 'database.php';
+
+function listar_tarefas() {
+    $db = get_db_connection();
+    $sql = "SELECT * FROM tarefas";
+    $stmt = $db->query($sql);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$tarefas = listar_tarefas();
+?>
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Tarefas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #5D5C61;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 20px auto;
+            width: 50%;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        form input, form button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        form button {
+            background-color: #2E86C1;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        form button:hover {
+            background-color: #1A5276;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 20px auto;
+            width: 60%;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        ul li {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        ul li:last-child {
+            border-bottom: none;
+        }
+
+        ul li a {
+            text-decoration: none;
+            color: #E74C3C;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        ul li a:hover {
+            color: #C0392B;
+        }
+
+        ul li strike {
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lista de Tarefas</h1>
+
+    <form action="add_tarefa.php" method="POST">
+        <label for="descricao">Descrição:</label>
+        <input type="text" id="descricao" name="descricao" required>
+        <label for="data_vencimento">Data de Vencimento:</label>
+        <input type="date" id="data_vencimento" name="data_vencimento">
+        <button type="submit">Adicionar Tarefa</button>
+    </form>
+
+    <h2>Tarefas Não Concluídas</h2>
+    <ul>
+        <?php foreach ($tarefas as $tarefa): ?>
+            <?php if ($tarefa['concluida'] == 0): ?>
+                <li>
+                    <?php echo htmlspecialchars($tarefa['descricao']); ?> (<?php echo $tarefa['data_vencimento']; ?>)
+                    <span>
+                        <a href="update_tarefa.php?id=<?php echo $tarefa['id']; ?>">Marcar como concluída</a>
+                        <a href="delete_tarefa.php?id=<?php echo $tarefa['id']; ?>">Excluir</a>
+                    </span>
+                </li>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </ul>
+
+    <h2>Tarefas Concluídas</h2>
+    <ul>
+        <?php foreach ($tarefas as $tarefa): ?>
+            <?php if ($tarefa['concluida'] == 1): ?>
+                <li>
+                    <strike><?php echo htmlspecialchars($tarefa['descricao']); ?> (<?php echo $tarefa['data_vencimento']; ?>)</strike>
+                </li>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </ul>
+</body>
+</html>
+==================================================
+DATABASE.PHP
+
+<?php
+
+function get_db_connection() {
+    $db = new PDO('sqlite:tasks.db');
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    return $db;
+}
+
+function create_table_if_not_exists() {
+    $db = get_db_connection();
+    $sql = "CREATE TABLE IF NOT EXISTS tarefas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                descricao TEXT NOT NULL,
+                data_vencimento TEXT,
+                concluida INTEGER DEFAULT 0
+            )";
+    $db->exec($sql);
+}
+
+create_table_if_not_exists();
+?>
+
+=========================
+ADD_TAREFA.PHP
+
+<?php
+
+include 'database.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $descricao = $_POST['descricao'];
+    $data_vencimento = $_POST['data_vencimento'];
+
+    $db = get_db_connection();
+    $sql = "INSERT INTO tarefas (descricao, data_vencimento) VALUES (?, ?)";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$descricao, $data_vencimento]);
+
+    header('Location: index.php');
+    exit;
+}
+?>
+
+
+=============================
+UPDATE_TAREFA.PHP
+
+<?php
+
+include 'database.php';
+
+if (isset($_GET['id'])) {
+    $id = $_GET['id'];
+
+    $db = get_db_connection();
+    $sql = "UPDATE tarefas SET concluida = 1 WHERE id = ?";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$id]);
+
+    header('Location: index.php');
+    exit;
+}
+?>
+===============================
+
+DELETE_TAREFA.PHP
+
+<?php
+
+include 'database.php';
+
+if (isset($_GET['id'])) {
+    $id = $_GET['id'];
+
+    $db = get_db_connection();
+    $sql = "DELETE FROM tarefas WHERE id = ?";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$id]);
+
+    header('Location: index.php');
+    exit;
+}
+?>
